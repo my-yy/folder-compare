@@ -3,7 +3,7 @@
     <div class="topbar">
       <div>
         <el-button size="small" @click="$router.push('/')" icon="el-icon-s-home"></el-button>
-        <!--        <el-button size="small" @click="onSearch" icon="el-icon-search"></el-button>-->
+        <el-button size="small" @click="onSearch" icon="el-icon-search"></el-button>
         <el-button size="small" @click="createFolder" icon="el-icon-plus"></el-button>
       </div>
       <div>
@@ -38,6 +38,7 @@
 
     <FolderDialog ref="FolderDialog"/>
     <CollectionDialog ref="CollectionDialog"/>
+    <SearchFolderDialog ref="SearchFolderDialog" @select="onAddFolder"/>
   </div>
 </template>
 
@@ -46,10 +47,11 @@ import web_util from "@/utils/web_util";
 import * as echarts from 'echarts';
 import FolderDialog from "@/components/FolderDialog.vue";
 import CollectionDialog from "@/components/CollectionDialogV2.vue";
+import SearchFolderDialog from "@/components/SearchFolderDialog.vue";
 
 export default {
   name: 'Empty',
-  components: {CollectionDialog, FolderDialog},
+  components: {SearchFolderDialog, CollectionDialog, FolderDialog},
   props: ["id"],
   data() {
     return {
@@ -86,26 +88,34 @@ export default {
 
     //3. 绘图
     this.chart = echarts.init(this.$refs.chart);
-    if (folder_list.length > 0) {
-      const path = folder_list[0].path
-      const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: path})
-      this.obj_list = data.list
-      this.setChartOption(this.obj_list)
-    }
+    this.setChartOption()
+    // if (folder_list.length > 0) {
+    //   const path = folder_list[0].path
+    //   const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: path})
+    //   this.obj_list = data.list
+    //   this.setChartOption(this.obj_list)
+    // }
   },
   methods: {
+    async onSearch() {
+      this.$refs.SearchFolderDialog.show()
+    },
     async createFolder() {
       const obj = await this.$refs.FolderDialog.newFolder('ckpt')
       const id = obj.id
 
       //保存到当前collection中
-      const exist_ids = this.getCollectionFolderIds(this.collection)
-      exist_ids.push(id)
-      await this.updateCollectionFolderIds(exist_ids)
+      await this.addNewFolderIdInCollection(id)
 
       //3.push进去
       this.folder_list.push(obj)
     },
+    async addNewFolderIdInCollection(id) {
+      const exist_ids = this.getCollectionFolderIds(this.collection)
+      exist_ids.push(id)
+      await this.updateCollectionFolderIds(exist_ids)
+    },
+
     async updateCollectionFolderIds(exist_ids) {
       const folder_order = JSON.stringify(exist_ids)
       const {data} = await web_util.getHttp().post("/update_collection", {id: this.id, folder_order: folder_order})
@@ -127,7 +137,23 @@ export default {
       this.initChart();
       this.setChartOption(this.obj_list)
     },
-    setChartOption(data_list) {
+    async setChartOption() {
+      const series = []
+      for (const fobj of this.folder_list) {
+        const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
+        const obj_list = data.list
+
+        series.push(
+            {
+              name: fobj.custom_name || fobj.name,
+              type: 'line',
+              data: obj_list.map(item => [item.step, item.seed50_recons_sim]),
+            }
+        )
+
+
+      }
+
       const option = {
         // title: {
         //   text: '曲线图'
@@ -143,16 +169,11 @@ export default {
           type: 'value',
           name: 'seed50_recons_sim'
         },
-        series: [
-          {
-            name: 'seed50_recons_sim',
-            type: 'line',
-            data: data_list.map(item => [item.step, item.seed50_recons_sim]),
-          }
-        ]
+        series: series
       };
       this.chart.setOption(option);
     },
+
 
     async onRemoveFolder(f) {
       const exist_ids = this.getCollectionFolderIds(this.collection)
@@ -166,6 +187,11 @@ export default {
     async onEditFolder(f) {
       const data = await this.$refs.FolderDialog.editFolder(f)
       // this.$refs.SearchFolderDialog.refreshOptionList()
+    },
+    async onAddFolder(f) {
+      this.folder_list.push(f)
+      this.setChartOption()
+      await this.addNewFolderIdInCollection(f.id)
     }
   }
 }

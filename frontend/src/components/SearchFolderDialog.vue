@@ -7,6 +7,7 @@
       <div class="item_wrapper">
         <div v-for="f in searchResult" :key="f.id" class="the_item" @click="onItemClick(f)">
           <span class="created_date">{{ formateDate(f.created_date) }}</span>
+          <span v-if="f.content_type==='ckpt'" style="color: #42b983">[CKPT]</span>
           <span>{{ f.custom_name || f.name }}</span>
           <span class="desc"> {{ f.desc }}</span>
         </div>
