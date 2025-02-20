@@ -27,17 +27,15 @@
       </div>
     </div>
     <div class="display_wrapper">
-      <div ref="chart" style="width: 600px; height: 400px;"></div>
-      <div class="raw_step_eval_logs">
-        <div v-for="obj in obj_list" :key="obj.name">
-          {{ obj }}
-        </div>
-      </div>
+      <div ref="chart" style="width: 70vw; height: 60vh;margin: 0 auto"></div>
+      <!--      <div class="raw_step_eval_logs">-->
+      <!--        <div v-for="obj in obj_list" :key="obj.name">-->
+      <!--          {{ obj }}-->
+      <!--        </div>-->
+      <!--      </div>-->
     </div>
-
-
     <FolderDialog ref="FolderDialog"/>
-    <CollectionDialog ref="CollectionDialog"/>
+    <CollectionDialog ref="CollectionDialog" @delete="onCollectionDeleted"/>
     <SearchFolderDialog ref="SearchFolderDialog" @select="onAddFolder"/>
   </div>
 </template>
@@ -57,19 +55,6 @@ export default {
     return {
       collection: null,
       folder_list: [],
-      obj_list: [],
-      data: [
-        {seed50_recons_sim: 0.4971873643994331, step: 50000},
-        {seed50_recons_sim: 0.6333399266004562, step: 100000},
-        {seed50_recons_sim: 0.6759513103961945, step: 150000},
-        {seed50_recons_sim: 0.6875373405218125, step: 200000},
-        {seed50_recons_sim: 0.6808691155910492, step: 250000},
-        {seed50_recons_sim: 0.6804680049419403, step: 300000},
-        {seed50_recons_sim: 0.6996851313114166, step: 350000},
-        {seed50_recons_sim: 0.6874189114570618, step: 360000},
-        {seed50_recons_sim: 0.6863557887077332, step: 370000},
-        {seed50_recons_sim: 0.683381894826889, step: 380000}
-      ]
     }
   },
   async mounted() {
@@ -89,12 +74,7 @@ export default {
     //3. 绘图
     this.chart = echarts.init(this.$refs.chart);
     this.setChartOption()
-    // if (folder_list.length > 0) {
-    //   const path = folder_list[0].path
-    //   const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: path})
-    //   this.obj_list = data.list
-    //   this.setChartOption(this.obj_list)
-    // }
+
   },
   methods: {
     async onSearch() {
@@ -129,35 +109,41 @@ export default {
       }
       return exist_ids
     },
-    async init() {
-      const path = "/workspace/audio_team/usr/cgy/3_ckpts/ham-flow/vq0918-addEmb-Pretrain2/"
-      const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: path})
-      console.log(data)
-      this.obj_list = data.list
-      this.initChart();
-      this.setChartOption(this.obj_list)
-    },
     async setChartOption() {
       const series = []
+      const legendData = []; // 用于存储图例数据
+      const legend_selected = {}
       for (const fobj of this.folder_list) {
-        const {data} = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
+        let data
+        try {
+          const re = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
+          data = re.data
+        } catch (e) {
+          console.log(e)
+          this.$message.error("加载失败")
+          continue
+        }
         const obj_list = data.list
 
-        series.push(
-            {
-              name: fobj.custom_name || fobj.name,
-              type: 'line',
-              data: obj_list.map(item => [item.step, item.seed50_recons_sim]),
-            }
-        )
-
-
+        const seriesItem = {
+          name: fobj.custom_name || fobj.name,
+          type: 'line',
+          data: obj_list.map(item => [item.step, item.seed50_recons_sim]),
+          // visible: false,
+        };
+        series.push(seriesItem);
+        legendData.push(seriesItem.name); // 将曲线名称添加到图例数据中
+        legend_selected[seriesItem.name] = true
       }
 
       const option = {
         // title: {
         //   text: '曲线图'
         // },
+        legend: {
+          data: legendData, // 使用图例数据
+          selected: legend_selected //用于显示，隐藏
+        },
         tooltip: {
           trigger: 'axis'
         },
@@ -169,7 +155,32 @@ export default {
           type: 'value',
           name: 'seed50_recons_sim'
         },
-        series: series
+        series: series,
+        // dataZoom: [
+        //   {
+        //     type: 'slider', // 滑动条型
+        //     start: 0, // 初始显示范围的起始百分比
+        //     end: 100 // 初始显示范围的结束百分比
+        //   },
+        // ],
+        dataZoom2: [
+          {
+            id: 'dataZoomX',
+            type: 'slider', // 内置型缩放
+            xAxisIndex: [0], // 控制 X 轴
+            filterMode: 'filter', // X 轴缩放模式
+            start: 0, // 初始显示范围的起始百分比
+            end: 100 // 初始显示范围的结束百分比
+          },
+          {
+            id: 'dataZoomY',
+            type: 'slider', // 内置型缩放
+            yAxisIndex: [0], // 控制 Y 轴
+            filterMode: 'empty', // Y 轴缩放模式
+            start: 0,
+            end: 100
+          }
+        ]
       };
       this.chart.setOption(option);
     },
@@ -192,6 +203,9 @@ export default {
       this.folder_list.push(f)
       this.setChartOption()
       await this.addNewFolderIdInCollection(f.id)
+    },
+    onCollectionDeleted() {
+      this.$router.replace("/")
     }
   }
 }

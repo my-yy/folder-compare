@@ -273,6 +273,15 @@ def get_folders_of_collection():
     return jsonify(folder_list)
 
 
+@app.route('/delete_collection', methods=['POST'])
+def delete_collection():
+    the_dict = request.json
+    collection_id = the_dict["id"]
+    collection = Collection.get(Collection.id == collection_id)
+    collection.delete_instance()
+    return jsonify({"status": "success", "message": f"Collection {collection_id} deleted"})
+
+
 def update_model_instance(instance, model_fields, data_dict):
     for field_name in model_fields:
         if field_name in data_dict and field_name not in ['id']:

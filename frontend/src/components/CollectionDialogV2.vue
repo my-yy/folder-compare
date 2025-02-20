@@ -2,10 +2,10 @@
   <el-dialog title="Collection" :visible.sync="dialogVisible" width="70%">
     <div>
       <el-form label-width="100px">
-        <el-form-item label="Orders" v-if="column_list.length>0">
+        <el-form-item label="Orders" v-if="folder_list.length>0">
           <div>
-            <draggable v-model="column_list" group="people">
-              <span class="the_drag_item" v-for="element in column_list" :key="element.id">{{
+            <draggable v-model="folder_list" group="people">
+              <span class="the_drag_item" v-for="element in folder_list" :key="element.id">{{
                   element.custom_name
                 }}</span>
             </draggable>
@@ -20,6 +20,9 @@
         </el-form-item>
         <el-form-item label="Raw" v-if="collection.raw_folders">
           <el-input v-model="collection.raw_folders" type="textarea" :rows="5"></el-input>
+        </el-form-item>
+        <el-form-item label="Delete">
+          <el-link @click="onDeleteCollection">删除</el-link>
         </el-form-item>
       </el-form>
     </div>
@@ -49,7 +52,7 @@ export default {
         desc: "",
       },
       resolve: null,
-      column_list: []
+      folder_list: []
     }
   },
   mounted() {
@@ -59,31 +62,11 @@ export default {
     onEnd() {
       console.log('拖拽结束');
     },
-    newCollection(column_list, content_type = "wav") {
-      const ids = column_list.map(item => item.id)
-      this.column_list = column_list.map(obj => {
-        return {
-          custom_name: obj.custom_name,
-          id: obj.id
-        }
-      })
-
-      this.collection = {
-        name: "",
-        desc: "",
-        ids: ids,
-        content_type: content_type
-      }
-      this.dialogVisible = true
-      return new Promise(((resolve, reject) => {
-        this.resolve = resolve
-      }))
-    },
     updateCollection(collection, folder_list) {
       this.collection = collection
       this.collection.ids = folder_list.map(obj => obj.id)
       this.dialogVisible = true
-      this.column_list = folder_list.map(obj => {
+      this.folder_list = folder_list.map(obj => {
         return {
           custom_name: obj.custom_name,
           id: obj.id
@@ -95,20 +78,34 @@ export default {
     },
     async onSave() {
       let order_text = ""
-      if (this.column_list) {
-        order_text = JSON.stringify(this.column_list.map(obj => obj.id))
+      if (this.folder_list) {
+        order_text = JSON.stringify(this.folder_list.map(obj => obj.id))
       }
       this.collection.folder_order = order_text
       let re
-      if (this.collection.id) {
-        re = await web_util.getHttp().post("/update_collection", this.collection)
-      } else {
-        re = await web_util.getHttp().post("/new_collection", this.collection)
-      }
+      re = await web_util.getHttp().post("/update_collection", this.collection)
       this.dialogVisible = false
       this.resolve(re.data)
       this.$message.success("saved")
+    },
+    async onDeleteCollection() {
+      try {
+        await this.$confirm('此操作将永久删除该记录, 是否继续?', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+      } catch (e) {
+        return
+      }
+      console.log("1")
+      await web_util.getHttp().post("/delete_collection", this.collection)
+      console.log("已经删除")
+
+      this.$message.success("删除成功")
+      this.$emit("delete")
     }
+
   }
 }
 </script>
