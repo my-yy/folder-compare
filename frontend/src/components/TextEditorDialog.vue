@@ -1,13 +1,11 @@
 <template>
-  <el-dialog title="Collection" :visible.sync="dialogVisible" width="70%" :close-on-click-modal="false">
+  <el-dialog title="TextEdit" :visible.sync="dialogVisible" width="70%" :close-on-click-modal="false">
     <div>
       <quill-editor
           v-model="content"
           :options="editorOption"
       ></quill-editor>
-
-      <!--      <div>{{ content }}</div>-->
-      <div style="text-align: center">
+      <div style="text-align: center;margin-top: 10px;">
         <el-button @click="onSave">Save</el-button>
       </div>
     </div>
@@ -15,9 +13,6 @@
 </template>
 
 <script>
-
-
-import web_util from "@/utils/web_util";
 
 export default {
   name: 'TextEditorDialog',
@@ -40,7 +35,7 @@ export default {
     }
   },
   mounted() {
-    this.content = "你好哇"
+    // this.content = "你好哇"
   },
   methods: {
     editHtml(content) {
@@ -51,7 +46,6 @@ export default {
       }))
     },
     async onSave() {
-      this.$message.success("保存成功")
       this.dialogVisible = false
       this.resolve(this.content)
     }

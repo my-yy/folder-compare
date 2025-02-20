@@ -31,6 +31,11 @@ const routes = [
         path: '/table',
         component: () => import(/* webpackChunkName: "about" */ '../tests/TestTable.vue')
     },
+    {
+        path: '/figure/:id?',
+        props: true,
+        component: () => import(/* webpackChunkName: "about" */ '../views/FigureView.vue')
+    },
 ]
 
 const router = new VueRouter({

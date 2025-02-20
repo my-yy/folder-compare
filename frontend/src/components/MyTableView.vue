@@ -23,7 +23,7 @@
         <td v-for="(obj, key) in all_data" :key="key">
           <div v-if="obj.items[rowIndex]">
             <div class="item_name">
-              <span style="color: #42b983">【{{rowIndex}}】</span>
+              <span style="color: #42b983">【{{ rowIndex }}】</span>
               {{ obj.items[rowIndex].name }}
               <i class="el-icon-edit" @click="onEditHtml(obj,rowIndex)"></i>
             </div>
@@ -90,14 +90,9 @@ export default {
     async onEditHtml(obj, rowIndex) {
       const text = obj.name2text[obj.items[rowIndex].name]
       const newText = await this.$refs.TextEditorDialog.editHtml(text)
-      //web 保存
       obj.name2text[obj.items[rowIndex].name] = newText
-
-      console.log(obj)
       await web_util.getHttp().post("/update_name2text", {'path': obj.path, 'name2text': obj.name2text})
       this.$message.success("保存成功")
-
-
     }
   }
 }

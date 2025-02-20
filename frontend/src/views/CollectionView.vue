@@ -21,13 +21,6 @@
       </div>
     </div>
 
-    <div class="input_wrapper" style="display: none">
-      <el-button size="small" @click="$router.push('/')" icon="el-icon-s-home"></el-button>
-      <el-button size="small" @click="onSearch" icon="el-icon-search"></el-button>
-      <el-button size="small" @click="createFolder" icon="el-icon-folder-add"></el-button>
-      <div style="flex-grow: 1"></div>
-      <el-button size="small" v-if="!collection" @click="newCollection">NewCollection</el-button>
-    </div>
 
     <div class="column_wrapper">
       <MyTableView :all_data="column_list" @close_folder="onCloseFolder" @edit_folder="onEditFolder"/>
@@ -59,13 +52,11 @@ export default {
       column_list: [],
       all_folders: [],
       options: [],
-      raw_folder: null,
       show_save_icon: false,
     }
   },
   async mounted() {
 
-    this.raw_folder = "/workspace/audio_team/usr/cgy/1_projects/65_cosyvoice-flow/outputs/vq1222-dit-40w/1231_093015_vq1222-dit-40w"
     this.refreshOptionList()
 
     if (!this.id) {
@@ -101,11 +92,12 @@ export default {
       this.show_save_icon = false
     },
     async onAddFolder(f, is_init_add = false) {
+      // console.log("onAddFolder", f)
       try {
         const {data} = await web_util.getHttp().post("/parse_folder", {'id': f.id})
         this.column_list.push(data)
       } catch (e) {
-        console.log('error for loading folder', id)
+        console.log('error for loading folder', f)
         console.log(e)
         this.$message.error("error" + e)
       }
@@ -179,6 +171,7 @@ export default {
 .title_bar > .desc {
   font-size: small;
   color: gray;
+  white-space: pre-wrap;
 }
 
 .folder_input input {

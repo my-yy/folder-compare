@@ -59,7 +59,7 @@ export default {
     onEnd() {
       console.log('拖拽结束');
     },
-    newCollection(column_list, raw_folders = "", content_type = "wav") {
+    newCollection(column_list, content_type = "wav") {
       const ids = column_list.map(item => item.id)
       this.column_list = column_list.map(obj => {
         return {
@@ -72,7 +72,6 @@ export default {
         name: "",
         desc: "",
         ids: ids,
-        raw_folders: raw_folders,
         content_type: content_type
       }
       this.dialogVisible = true
@@ -80,11 +79,11 @@ export default {
         this.resolve = resolve
       }))
     },
-    updateCollection(collection, column_list) {
+    updateCollection(collection, folder_list) {
       this.collection = collection
-      this.collection.ids = column_list.map(obj => obj.id)
+      this.collection.ids = folder_list.map(obj => obj.id)
       this.dialogVisible = true
-      this.column_list = column_list.map(obj => {
+      this.column_list = folder_list.map(obj => {
         return {
           custom_name: obj.custom_name,
           id: obj.id

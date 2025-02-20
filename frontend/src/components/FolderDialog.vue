@@ -52,12 +52,13 @@ export default {
   },
 
   methods: {
-    newFolder() {
+    newFolder(content_type = 'wav') {
       this.folder = {
         path: "",
         custom_name: "",
         desc: "",
         is_gt: false,
+        content_type: content_type
       }
       this.dialogVisible = true
       return new Promise(((resolve, reject) => {

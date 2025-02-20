@@ -2,12 +2,15 @@
   <div>
     <div class="top_bar">
       <el-button @click="$router.push('/collection/')">NewCollection</el-button>
+      <el-button @click="onNewCkptCollection">NewCkptCollection</el-button>
     </div>
     <div class="the_item_wrapper">
       <div v-for="item in collection_list" class="single_item">
         <div>
           <span class="created_date">{{ formateDate(item.created_date) }}</span>
+          <span v-if="item.content_type==='ckpt'" style="color: #42b983">【CKPT】</span>
           <span class="name_link" @click="onLinkNameClick(item)">{{ item.name }}</span>
+
         </div>
       </div>
     </div>
@@ -38,6 +41,11 @@ export default {
   },
   methods: {
     onLinkNameClick(item) {
+      if (item.content_type === "ckpt") {
+        this.$router.push('/figure/' + item.id)
+        return
+      }
+
       if (item.raw_folders) {
         this.$router.push('/raw/' + item.id)
       } else {
@@ -46,6 +54,13 @@ export default {
     },
     formateDate(date) {
       return moment(date).format('YYYY-MM-DD');
+    },
+    async onNewCkptCollection() {
+      const re = await web_util.getHttp().post("/new_collection", {
+        name: "未命名:" + new Date().getTime(),
+        content_type: "ckpt"
+      })
+      this.$router.push('/figure/' + re.data.id)
     }
 
   }
@@ -72,6 +87,7 @@ export default {
 
 .top_bar {
   text-align: center;
+  margin-bottom: 10px;
 }
 
 .the_item_wrapper {

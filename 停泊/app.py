@@ -1,12 +1,17 @@
+import glob
+
 import flask_cors
 from flask import Flask, send_from_directory, abort, send_file
 from flask import Flask, jsonify, request
 import json
 from utils.db_util import Folder, Collection, FolderCollection
+from utils import db_util
 from playhouse.shortcuts import model_to_dict, dict_to_model
 import os
 from utils import sort_util, json_util
 from utils import info_parser
+
+db_util.do_connect()
 
 app = Flask(__name__)
 cors = flask_cors.CORS(app)
@@ -117,7 +122,8 @@ def parse_folder():
     column['info'] = {}
     column['name2text'] = name2text
     if info_file is not None:
-        del info_file['detail']
+        if 'detail' in info_file:
+            del info_file['detail']
         for key, value in info_file.items():
             column[key] = value
 
@@ -158,6 +164,22 @@ def parse_raw_folder():
          })
 
 
+@app.route('/parse_ckpt_folder', methods=['POST'])
+def parse_ckpt_folder():
+    the_dict = request.json
+    folder_path = the_dict["path"]
+    assert os.path.exists(folder_path)
+
+    # 获得所有.eval.json文件
+    if not folder_path.endswith("/"):
+        folder_path += "/"
+
+    json_list = glob.glob(f"{folder_path}*.eval.json")
+    jobj_list = [json_util.load_json(fp) for fp in json_list]
+    jobj_list.sort(key=lambda x: x['step'])
+    return jsonify({"list": jobj_list, })
+
+
 @app.route('/new_folder', methods=['POST'])
 def create_folder():
     # 1.读取原始数据
@@ -169,6 +191,7 @@ def create_folder():
         custom_name=the_dict.get("custom_name", ""),
         desc=the_dict.get("desc", ""),
         is_gt=the_dict.get("is_gt", False),
+        content_type=the_dict.get("content_type", 'wav'),
         path=folder_path,
     )
     return jsonify(model_to_dict(folder))
@@ -187,6 +210,7 @@ def update_folder():
     folder.desc = the_dict.get("desc", "")
     folder.is_gt = the_dict.get("is_gt", False)
     folder.path = the_dict["path"]
+    folder.content_type = the_dict["content_type"]
     folder.save()
     return jsonify(model_to_dict(folder))
 
@@ -240,15 +264,32 @@ def new_collection():
     return jsonify(model_to_dict(new_collection))
 
 
+def get_model_fields(model):
+    return [field.name for field in model._meta.sorted_fields]
+
+
+def update_model_instance(model, instance_id, data_dict):
+    instance = model.get(model.id == instance_id)  # 获取实例
+    model_fields = get_model_fields(model)  # 获取模型字段名
+
+    for field_name in model_fields:
+        if field_name in data_dict and field_name not in ['id']:
+            setattr(instance, field_name, data_dict[field_name])
+
+    instance.save()  # 保存更新后的实例
+
+
 @app.route('/update_collection', methods=['POST'])
 def update_collection():
     the_dict = request.json
     the_id = the_dict["id"]
     col = Collection.get(Collection.id == the_id)
+    # col = update_model_instance(Collection, the_id, the_dict)
     col.name = the_dict["name"]
     col.desc = the_dict.get("desc", "")
     col.raw_folders = the_dict.get("raw_folders", "")
     col.folder_order = the_dict.get("folder_order", "")
+    col.content_type = the_dict.get("content_type", "wav")
     col.save()
 
     new_folder_ids = the_dict['ids']
