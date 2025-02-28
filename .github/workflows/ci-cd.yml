@@ -1,0 +1,43 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main  # 指定触发 CI/CD 的分支
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"  # 根据项目需求指定 Node.js 版本
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build project
+        run: npm run build
+
+      - name: Create ZIP package
+        run: |
+          cd frontend  # 进入项目前端目录
+          zip -r ../dist.zip ./dist  # 将 dist 文件夹打包为 dist.zip
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.sha }}  # 使用当前提交的 SHA 作为版本号
+          name: Release ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: |
+            ./dist.zip  # 上传打包后的 ZIP 文件
