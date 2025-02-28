@@ -1,5 +1,6 @@
 <template>
   <div>
+    <div v-if="maxItemLength>setting_max_len" style="font-size: small;color: gray;text-align: center;">总行数:{{maxItemLength}} ，仅显示前{{ setting_max_len}}行</div>
     <table class="data-table" v-if="maxItemLength>0">
       <thead>
       <tr>
@@ -7,7 +8,7 @@
 
           <div class="column_name">
             <i class="el-icon-close" @click="$emit('close_folder',obj)"></i>
-            <span> {{ obj.custom_name || obj.name }}</span>
+            <span> {{ obj.name }}</span>
             <i class="el-icon-edit" @click="$emit('edit_folder',obj)"></i>
           </div>
           <div class="column_info">
@@ -55,7 +56,7 @@ export default {
   props: ['all_data'],
   data() {
     return {
-      // all_data: []
+      setting_max_len:150
     }
   },
   computed: {
@@ -70,7 +71,8 @@ export default {
     indexArray() {
       // 直接v-for遍历maxItemLength，下标是从1开始的，为此，直接遍历这个数组
       // 生成从 0 到 maxItemLength - 1 的数组
-      return Array.from({length: this.maxItemLength}, (_, i) => i);
+      const max_len = Math.min(this.maxItemLength, this.setting_max_len)
+      return Array.from({length: max_len}, (_, i) => i);
     },
   },
   mounted() {

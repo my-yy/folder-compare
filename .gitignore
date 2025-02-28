@@ -13,7 +13,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dist/
-
+3_upload.sh
 # Editor directories and files
 .idea
 .vscode

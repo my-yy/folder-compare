@@ -1,3 +1,5 @@
+# 升级版本
+python migration.py
 
 
 # 部署

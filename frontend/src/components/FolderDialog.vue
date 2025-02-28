@@ -6,7 +6,7 @@
           <el-input v-model="folder.path" type="textarea" :rows="4"></el-input>
         </el-form-item>
         <el-form-item label="Name">
-          <el-input v-model="folder.custom_name"></el-input>
+          <el-input v-model="folder.name"></el-input>
         </el-form-item>
         <el-form-item label="Desc">
           <el-input v-model="folder.desc" type="textarea" :rows="5"></el-input>
@@ -37,7 +37,7 @@ export default {
       dialogVisible: false,
       folder: {
         path: "",
-        custom_name: "",
+        name: "",
         desc: "",
         is_gt: false,
       },
@@ -46,7 +46,7 @@ export default {
   },
   mounted() {
     // this.folder.path = "/workspace/audio_team/usr/cgy/1_projects/65_cosyvoice-flow/data/music30"
-    // this.folder.custom_name = "music30"
+    // this.folder.name = "music30"
     // this.folder.desc = "music30"
     // this.folder.is_gt = true
   },
@@ -55,7 +55,7 @@ export default {
     newFolder(content_type = 'wav') {
       this.folder = {
         path: "",
-        custom_name: "",
+        name: "",
         desc: "",
         is_gt: false,
         content_type: content_type

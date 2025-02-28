@@ -8,7 +8,7 @@
         <div v-for="f in searchResult" :key="f.id" class="the_item" @click="onItemClick(f)">
           <span class="created_date">{{ formateDate(f.created_date) }}</span>
           <span v-if="f.content_type==='ckpt'" style="color: #42b983">[CKPT]</span>
-          <span>{{ f.custom_name || f.name }}</span>
+          <span>{{ f.name }}</span>
           <span class="desc"> {{ f.desc }}</span>
         </div>
       </div>
@@ -27,7 +27,7 @@ import moment from "moment/moment";
 export default {
   name: 'SearchFolder',
   components: {},
-  props: [],
+  props: ["cur_folders"],
   data() {
     return {
       dialogVisible: false,
@@ -42,11 +42,19 @@ export default {
   },
   computed: {
     searchResult() {
-      if (!this.search_text) {
-        return this.all_folders
+      let all_folders = this.all_folders
+      if (this.cur_folders) {
+        let current_ids = this.cur_folders.map(f => f.id)
+        all_folders = all_folders.filter(f => {
+          return current_ids.indexOf(f.id) < 0
+        })
       }
-      return this.all_folders.filter(f => {
-        return f.name.includes(this.search_text) || f.custom_name.includes(this.search_text)
+
+      if (!this.search_text) {
+        return all_folders
+      }
+      return all_folders.filter(f => {
+        return f.name.includes(this.search_text)
       })
     }
   },

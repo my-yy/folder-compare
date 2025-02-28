@@ -130,37 +130,6 @@ def parse_folder():
     return jsonify(column)
 
 
-# @app.route('/parse_raw_folder', methods=['POST'])
-# def parse_raw_folder():
-#     the_dict = request.json
-#     folder_path = the_dict["path"]
-#     assert os.path.exists(folder_path)
-#
-#     # 获得所有wav文件
-#     files = [f for f in os.listdir(folder_path) if f.endswith('.wav')]
-#     # 按文件名排序
-#     files = sort_util.sort_files(files)
-#
-#     info, detail_dict = info_parser.parse_info(folder_path)
-#
-#     # 得到全路径
-#     obj_list = []
-#     for name in files:
-#         obj = {
-#             'name': name,
-#             'path': os.path.join(folder_path, name),
-#             'info': detail_dict.get(name, None) if detail_dict else None
-#         }
-#         obj_list.append(obj)
-#
-#     return jsonify(
-#         {"items": obj_list,
-#          'name': folder_path.split("/")[-1],
-#          'path': folder_path,
-#          'info': info,
-#          })
-
-
 @app.route('/parse_ckpt_folder', methods=['POST'])
 def parse_ckpt_folder():
     the_dict = request.json
@@ -174,7 +143,15 @@ def parse_ckpt_folder():
     json_list = glob.glob(f"{folder_path}*.eval.json")
     jobj_list = [json_util.load_json(fp) for fp in json_list]
     jobj_list.sort(key=lambda x: x['step'])
-    return jsonify({"list": jobj_list, })
+
+    float_keys = set()
+    for obj in jobj_list:
+        keys = [key for key, value in obj.items() if isinstance(value, (int, float)) and key not in ['step']]
+        float_keys.update(keys)
+    float_keys = list(float_keys)
+    float_keys.sort()
+
+    return jsonify({"list": jobj_list, 'float_keys': float_keys})
 
 
 @app.route('/new_folder', methods=['POST'])
@@ -182,14 +159,20 @@ def create_folder():
     # 1.读取原始数据
     the_dict = request.json
     folder_path = the_dict["path"]
+    name = the_dict.get("name", get_folder_name(folder_path))
     folder = Folder.create(
-        name=folder_path.split("/")[-1],
-        custom_name=the_dict.get("custom_name", ""),
+        name=name,
         desc=the_dict.get("desc", ""),
         content_type=the_dict.get("content_type", 'wav'),
         path=folder_path,
     )
     return jsonify(model_to_dict(folder))
+
+
+def get_folder_name(folder_path):
+    if folder_path.endswith("/"):
+        folder_path = folder_path[0:-1]
+    return folder_path.split("/")[-1]
 
 
 @app.route('/update_folder', methods=['POST'])
@@ -209,7 +192,17 @@ def update_name2text():
     the_dict = request.json
     the_path = the_dict["path"]
     name2text = the_dict["name2text"]
-    json_util.save_json(os.path.join(the_path, 'name2text.json'), name2text)
+    json_fp = os.path.join(the_path, 'name2text.json')
+
+    try:
+        obj = json_util.load_json(json_fp)
+        for k, v in name2text.items():  # 覆写现有的内容
+            obj[k] = v
+        name2text = obj
+    except Exception as e:
+        pass
+
+    json_util.save_json(json_fp, name2text)
     return jsonify({})
 
 

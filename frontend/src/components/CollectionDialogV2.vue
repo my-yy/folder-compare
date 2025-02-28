@@ -6,7 +6,7 @@
           <div>
             <draggable v-model="folder_list" group="people">
               <span class="the_drag_item" v-for="element in folder_list" :key="element.id">{{
-                  element.custom_name
+                  element.name
                 }}</span>
             </draggable>
 
@@ -68,7 +68,7 @@ export default {
       this.dialogVisible = true
       this.folder_list = folder_list.map(obj => {
         return {
-          custom_name: obj.custom_name,
+          name: obj.name,
           id: obj.id
         }
       })

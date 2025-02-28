@@ -21,11 +21,17 @@
 
     <div>
       <div v-for="f in folder_list">
-        <i class="el-icon-close" @click="onRemoveFolder(f)"></i>
-        <span> {{ f.custom_name || f.name }}</span>
+        <el-link icon="el-icon-close" @click="onRemoveFolder(f)"></el-link>
+        <span> {{ f.name }}</span>
         <el-link icon="el-icon-edit" @click="onEditFolder(f)"></el-link>
       </div>
     </div>
+    <div style="text-align: center;">
+      <el-radio-group v-model="cur_key" @change="showKey">
+        <el-radio-button v-for="key in float_keys" :key="key" :label="key"></el-radio-button>
+      </el-radio-group>
+    </div>
+
     <div class="display_wrapper">
       <div ref="chart" style="width: 70vw; height: 60vh;margin: 0 auto"></div>
       <!--      <div class="raw_step_eval_logs">-->
@@ -55,6 +61,8 @@ export default {
     return {
       collection: null,
       folder_list: [],
+      float_keys: [],
+      cur_key: null,
     }
   },
   async mounted() {
@@ -71,12 +79,43 @@ export default {
     //等待页面渲染完成
     await this.$nextTick()
 
-    //3. 绘图
+    //3.获得float keys
+
+    let total_float_keys = new Set()
+    for (const fobj of this.folder_list) {
+      let data
+      try {
+        const re = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
+        data = re.data
+      } catch (e) {
+        continue
+      }
+      fobj.obj_list = data.list
+      const float_keys = data.float_keys
+      // console.log("float_keys single:", float_keys)
+      float_keys.forEach(s=>total_float_keys.add(s))
+      // total_float_keys.add(...float_keys)
+    }
+    total_float_keys = Array.from(total_float_keys)
+    total_float_keys.sort()
+    // console.log("total_float_keys", total_float_keys)
+    this.float_keys = total_float_keys
+
+    this.cur_key = total_float_keys[0]
+
+
     this.chart = echarts.init(this.$refs.chart);
-    this.setChartOption()
+    if (this.cur_key) {
+      this.setChartOption()
+    }
 
   },
   methods: {
+    showKey(key) {
+      this.cur_key = key
+      this.setChartOption()
+
+    },
     async onSearch() {
       this.$refs.SearchFolderDialog.show()
     },
@@ -86,7 +125,6 @@ export default {
 
       //保存到当前collection中
       await this.addNewFolderIdInCollection(id)
-
       //3.push进去
       this.folder_list.push(obj)
     },
@@ -95,10 +133,9 @@ export default {
       exist_ids.push(id)
       await this.updateCollectionFolderIds(exist_ids)
     },
-
     async updateCollectionFolderIds(exist_ids) {
       const folder_order = JSON.stringify(exist_ids)
-      const {data} = await web_util.getHttp().post("/update_collection", {id: this.id, folder_order: folder_order})
+      await web_util.getHttp().post("/update_collection", {id: this.id, folder_order: folder_order})
       this.collection.folder_order = folder_order
     },
     getCollectionFolderIds(collection) {
@@ -114,21 +151,22 @@ export default {
       const legendData = []; // 用于存储图例数据
       const legend_selected = {}
       for (const fobj of this.folder_list) {
-        let data
-        try {
-          const re = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
-          data = re.data
-        } catch (e) {
-          console.log(e)
-          this.$message.error("加载失败")
-          continue
-        }
-        const obj_list = data.list
+        // let data
+        // try {
+        //   const re = await web_util.getHttp().post("/parse_ckpt_folder", {path: fobj.path})
+        //   data = re.data
+        // } catch (e) {
+        //   console.log(e)
+        //   this.$message.error("加载失败")
+        //   continue
+        // }
+        const obj_list = fobj.obj_list || []
+        // const float_keys = data.float_keys
 
         const seriesItem = {
-          name: fobj.custom_name || fobj.name,
+          name: fobj.name,
           type: 'line',
-          data: obj_list.map(item => [item.step, item.seed50_recons_sim]),
+          data: obj_list.map(item => [item.step, item[this.cur_key]]),
           // visible: false,
         };
         series.push(seriesItem);
@@ -138,7 +176,7 @@ export default {
 
       const option = {
         // title: {
-        //   text: '曲线图'
+        //   text: "seed50_recons_sim"
         // },
         legend: {
           data: legendData, // 使用图例数据
@@ -153,7 +191,7 @@ export default {
         },
         yAxis: {
           type: 'value',
-          name: 'seed50_recons_sim'
+          name: this.cur_key
         },
         series: series,
         // dataZoom: [
@@ -163,7 +201,7 @@ export default {
         //     end: 100 // 初始显示范围的结束百分比
         //   },
         // ],
-        dataZoom2: [
+        dataZoom: [
           {
             id: 'dataZoomX',
             type: 'slider', // 内置型缩放

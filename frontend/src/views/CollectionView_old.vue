@@ -4,12 +4,14 @@
       <div>
         <el-button size="small" @click="$router.push('/')" icon="el-icon-s-home"></el-button>
         <el-button size="small" @click="onSearch" icon="el-icon-search"></el-button>
-        <el-button size="small" @click="onCreateFolderClick" icon="el-icon-plus"></el-button>
+        <el-button size="small" @click="createFolder" icon="el-icon-plus"></el-button>
       </div>
       <div>
         <div v-if="collection" class="title_bar">
           <div>{{ collection.name }}
             <el-link icon="el-icon-edit-outline" @click="updateCollection"></el-link>
+            <el-link v-if="show_save_icon" icon="el-icon-document-checked" style="margin-left: 1em;"
+                     @click="saveCollection"></el-link>
           </div>
           <div class="desc">{{ collection.desc }}</div>
         </div>
@@ -21,12 +23,12 @@
 
 
     <div class="column_wrapper">
-      <MyTableView :all_data="folder_list" @close_folder="onCloseFolder" @edit_folder="onEditFolder"/>
+      <MyTableView :all_data="column_list" @close_folder="onCloseFolder" @edit_folder="onEditFolder"/>
     </div>
 
     <FolderDialog ref="FolderDialog"/>
-    <CollectionDialog ref="CollectionDialog" @delete="$router.replace('/')"/>
-    <SearchFolderDialog ref="SearchFolderDialog" @select="onAddFolderBySearch" :cur_folders="folder_list"/>
+    <CollectionDialog ref="CollectionDialog"/>
+    <SearchFolderDialog ref="SearchFolderDialog" @select="onAddFolder"/>
   </div>
 </template>
 
@@ -34,7 +36,7 @@
 import web_util from "@/utils/web_util";
 import LazyAudio from "@/components/LazyAudio.vue";
 import FolderDialog from "@/components/FolderDialog.vue";
-import CollectionDialog from "@/components/CollectionDialogV2.vue";
+import CollectionDialog from "@/components/CollectionDialog.vue";
 import SearchFolderDialog from "@/components/SearchFolderDialog.vue";
 import MyTableView from "@/components/MyTableView.vue";
 
@@ -47,15 +49,19 @@ export default {
   data() {
     return {
       collection: null,
-      folder_list: [],
+      column_list: [],
       all_folders: [],
       options: [],
+      show_save_icon: false,
     }
   },
   async mounted() {
 
     this.refreshOptionList()
 
+    if (!this.id) {
+      return
+    }
 
     //1. 获取collection
     const {data} = await web_util.getHttp().post("/get_collection", {'id': parseInt(this.id)})
@@ -63,19 +69,43 @@ export default {
 
     //2. 获取collection的folder
     const re = await web_util.getHttp().post("/get_folders_of_collection", {'id': parseInt(this.id)})
-    for (const f of re.data) {
-      try {
-        const {data} = await web_util.getHttp().post("/parse_folder", {'id': f.id})
-        this.folder_list.push(data)
-      } catch (e) {
-        console.log(e)
-        this.$message.error("解析folder失败：" + f.id)
-      }
+    for (const item of re.data) {
+      await this.onAddFolder(item, true)
     }
   },
   computed: {},
   methods: {
+    async saveCollection() {
+      // ids字段
+      this.collection.ids = this.column_list.map(obj => obj.id)
 
+      // order_text 字段
+      this.collection.folder_order = JSON.stringify(this.column_list.map(obj => obj.id))
+
+      try {
+        await web_util.getHttp().post("/update_collection", this.collection)
+      } catch (e) {
+        this.$message.error("error" + e)
+        return
+      }
+      this.$message.success("save success")
+      this.show_save_icon = false
+    },
+    async onAddFolder(f, is_init_add = false) {
+      // console.log("onAddFolder", f)
+      try {
+        const {data} = await web_util.getHttp().post("/parse_folder", {'id': f.id})
+        this.column_list.push(data)
+      } catch (e) {
+        console.log('error for loading folder', f)
+        console.log(e)
+        this.$message.error("error" + e)
+      }
+      if (!is_init_add) {
+        //不是开始时的加载，而是后期的增加
+        this.show_save_icon = true
+      }
+    },
     async onSearch() {
       this.$refs.SearchFolderDialog.show()
     },
@@ -84,7 +114,7 @@ export default {
       this.all_folders = data
       //创建options
       this.options = this.all_folders.map(item => {
-        let label = item.name
+        let label = item.custom_name || item.name
         if (item.desc) {
           label = label + " " + item.desc
         }
@@ -95,69 +125,30 @@ export default {
         }
       })
     },
-    async onCreateFolderClick() {
-      const f = await this.$refs.FolderDialog.newFolder()
-      await this.addFolderByNewCreateOrBySearch(f)
-    },
-    async onAddFolderBySearch(f) {
-      await this.addFolderByNewCreateOrBySearch(f)
-    },
-    async addFolderByNewCreateOrBySearch(obj) {
-      //2.更新collection的order
-      await this.addNewFolderIdInCollection(obj.id)
-
-      //3.更新folder_list
-      try {
-        const re = await web_util.getHttp().post("/parse_folder", {'id': obj.id})
-        this.folder_list.push(re.data)
-      } catch (e) {
-        console.log(e)
-        this.$message.error("解析folder内容失败" + e)
-      }
-
-      //4.更新选项：
+    async createFolder() {
+      const obj = await this.$refs.FolderDialog.newFolder()
+      const re = await web_util.getHttp().post("/parse_folder", {'id': obj.id})
+      this.column_list.push(re.data)
       this.$refs.SearchFolderDialog.refreshOptionList()
-    },
-    async addNewFolderIdInCollection(id) {
-      const exist_ids = this.getCollectionFolderIds(this.collection)
-      console.log("exist_ids", exist_ids)
-      exist_ids.push(id)
-      await this.updateCollectionFolderIds(exist_ids)
-    },
-    getCollectionFolderIds(collection) {
-      const folder_order_str = collection.folder_order
-      let exist_ids = []
-      if (folder_order_str) {
-        exist_ids = JSON.parse(folder_order_str)
-      }
-      return exist_ids
-    },
-    async updateCollectionFolderIds(exist_ids) {
-      const folder_order = JSON.stringify(exist_ids)
-      await web_util.getHttp().post("/update_collection", {id: this.id, folder_order: folder_order})
-      this.collection.folder_order = folder_order
     },
     async onEditFolder(column) {
       const data = await this.$refs.FolderDialog.editFolder(column)
       this.$refs.SearchFolderDialog.refreshOptionList()
     },
-    async onCloseFolder(f) {
-      //从this.folder_list中删除folder
-      this.folder_list = this.folder_list.filter(item => item !== f)
-      //更新oder_list
-      const exist_ids = this.getCollectionFolderIds(this.collection)
-      exist_ids.splice(exist_ids.indexOf(f.id), 1)
-      await this.updateCollectionFolderIds(exist_ids)
-
+    onCloseFolder(column) {
+      //从this.column_list中删除column
+      this.column_list = this.column_list.filter(item => item !== column)
+      this.show_save_icon = true
     },
+
     async newCollection() {
-      const data = await this.$refs.CollectionDialog.newCollection(this.folder_list)
+      const data = await this.$refs.CollectionDialog.newCollection(this.column_list)
       console.log("data", data)
       this.$router.replace("/collection/" + data.id)
       this.collection = data
     },
     async updateCollection() {
-      this.$refs.CollectionDialog.updateCollection(this.collection, this.folder_list)
+      this.$refs.CollectionDialog.updateCollection(this.collection, this.column_list)
     }
   }
 }
